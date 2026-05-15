@@ -1,0 +1,114 @@
+// BabyPass Firestore security rules.
+//
+// Deploy:
+//   1. Install firebase CLI once:    npm install -g firebase-tools
+//   2. Sign in once:                 firebase login
+//   3. From this directory:          firebase deploy --only firestore:rules
+//
+// Or paste the body of this file into:
+//   Firebase Console → Firestore Database → Rules → Publish.
+//
+// Why these rules matter for messaging:
+//   The Swift app's conversation listener queries
+//     conversations.where("participants", arrayContains: <my uid>)
+//   For the seller to see a message her husband sent, the rules MUST allow
+//   read on a conversation document where her uid is in `participants`.
+//   The rule below does exactly that. If you ever see "Missing or insufficient
+//   permissions" in the Xcode console, this file is the place to fix it.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== helpers =====
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function isParticipant(participants) {
+      return isSignedIn() && request.auth.uid in participants;
+    }
+
+    // ===== listings =====
+    // Marketplace listings are publicly browsable (matches BrowseView, which
+    // is not behind a sign-in gate in MainTabView). Only the seller can write
+    // to their own listing.
+    match /listings/{listingId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+                    && request.resource.data.sellerUid == request.auth.uid;
+      allow update, delete: if isSignedIn()
+                            && resource.data.sellerUid == request.auth.uid;
+    }
+
+    // ===== conversations =====
+    // Only the two participants can read or write the conversation document.
+    match /conversations/{convId} {
+      allow read: if isParticipant(resource.data.participants);
+      allow create: if isSignedIn()
+                    && request.resource.data.participants.size() == 2
+                    && request.auth.uid in request.resource.data.participants;
+      // Only conversation participants can update. We deliberately do NOT
+      // add a diff().affectedKeys().hasOnly(...) field-whitelist or a
+      // `participants == participants` immutability check: both interact
+      // badly with FieldValue.increment and dotted-path writes (the docs
+      // are inconsistent on what surfaces in request.resource.data for
+      // partial map updates, and we observed false PERMISSION_DENIED when
+      // those checks were present). Tampering risk is low because only
+      // the two participants ever have write access.
+      allow update: if isParticipant(resource.data.participants);
+      // Either participant may delete the conversation (e.g., "delete chat"
+      // from the Messages tab — also lets test cleanup remove its docs).
+      allow delete: if isParticipant(resource.data.participants);
+
+      // ===== messages subcollection =====
+      // Only conversation participants can read messages or post new ones.
+      // senderUid is pinned to the authenticated user (no spoofing).
+      match /messages/{messageId} {
+        allow read: if isSignedIn()
+                    && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+        allow create: if isSignedIn()
+                      && request.resource.data.senderUid == request.auth.uid
+                      && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+        allow update: if false;
+        // Conversation participants may delete messages (allows cascade
+        // cleanup when a user deletes the conversation).
+        allow delete: if isSignedIn()
+                      && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+      }
+    }
+
+    // ===== user profiles =====
+    // The app only ever reads the CURRENT user's own profile (verified via
+    // grep: every collection("users").document(...) call uses user.uid).
+    // Seller display names are denormalized onto each listing/conversation
+    // doc, so cross-user profile reads are not needed. Locking to owner-only
+    // keeps the user's email private from other accounts.
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if isOwner(uid);
+
+      // Saved listings (heart icon) are private to the user.
+      match /savedListings/{listingId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Blocked-user list is private to the user.
+      match /blockedUsers/{otherUid} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ===== reports =====
+    // Any signed-in user can submit a report; nobody reads them from the
+    // client (review them in the Firebase Console).
+    match /reports/{reportId} {
+      allow create: if isSignedIn()
+                    && request.resource.data.reporterUid == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+  }
+}

@@ -6,6 +6,14 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D54E777C2F91C20000A99345 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = D54E777B2F91C20000A99345 /* FirebaseAnalytics */; };
+		D54E777E2F91C20000A99345 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = D54E777D2F91C20000A99345 /* FirebaseAuth */; };
+		D54E77802F91C20000A99345 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = D54E777F2F91C20000A99345 /* FirebaseFirestore */; };
+		D54E77822F91C20000A99345 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = D54E77812F91C20000A99345 /* FirebaseMessaging */; };
+		D54E77842F91C20000A99345 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = D54E77832F91C20000A99345 /* FirebaseStorage */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		D54E776C2F907C1700A99345 /* BabyPass.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BabyPass.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +31,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D54E77822F91C20000A99345 /* FirebaseMessaging in Frameworks */,
+				D54E777C2F91C20000A99345 /* FirebaseAnalytics in Frameworks */,
+				D54E777E2F91C20000A99345 /* FirebaseAuth in Frameworks */,
+				D54E77842F91C20000A99345 /* FirebaseStorage in Frameworks */,
+				D54E77802F91C20000A99345 /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +78,11 @@
 			);
 			name = BabyPass;
 			packageProductDependencies = (
+				D54E777B2F91C20000A99345 /* FirebaseAnalytics */,
+				D54E777D2F91C20000A99345 /* FirebaseAuth */,
+				D54E777F2F91C20000A99345 /* FirebaseFirestore */,
+				D54E77812F91C20000A99345 /* FirebaseMessaging */,
+				D54E77832F91C20000A99345 /* FirebaseStorage */,
 			);
 			productName = BabyPass;
 			productReference = D54E776C2F907C1700A99345 /* BabyPass.app */;
@@ -94,6 +112,9 @@
 			);
 			mainGroup = D54E77632F907C1700A99345;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D54E777A2F91C20000A99345 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D54E776D2F907C1700A99345 /* Products */;
 			projectDirPath = "";
@@ -178,7 +199,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -236,7 +257,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -256,16 +277,18 @@
 				DEVELOPMENT_TEAM = MJT4W3S4M6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "BabyPass needs camera access so you can take photos of items you want to sell.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "BabyPass uses your location to show nearby listings and help buyers find items close to them.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "BabyPass needs access to your photos so you can add images to your listings and set a profile picture.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jasmine.BabyPass;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -274,7 +297,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -288,16 +311,18 @@
 				DEVELOPMENT_TEAM = MJT4W3S4M6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "BabyPass needs camera access so you can take photos of items you want to sell.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "BabyPass uses your location to show nearby listings and help buyers find items close to them.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "BabyPass needs access to your photos so you can add images to your listings and set a profile picture.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jasmine.BabyPass;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -306,7 +331,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -332,6 +357,45 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D54E777A2F91C20000A99345 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.12.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D54E777B2F91C20000A99345 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D54E777A2F91C20000A99345 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		D54E777D2F91C20000A99345 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D54E777A2F91C20000A99345 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		D54E777F2F91C20000A99345 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D54E777A2F91C20000A99345 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		D54E77812F91C20000A99345 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D54E777A2F91C20000A99345 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+		D54E77832F91C20000A99345 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D54E777A2F91C20000A99345 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = D54E77642F907C1700A99345 /* Project object */;
 }
