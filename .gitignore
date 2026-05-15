@@ -1,0 +1,49 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.moved-aside
+xcuserdata/
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+
+# CocoaPods (if used later)
+Pods/
+
+# macOS
+.DS_Store
+*.swp
+*~
+.Trashes
+._*
+
+# Firebase / Secrets
+GoogleService-Info.plist
+
+# Environment & config secrets
+.env
+*.xcconfig
+
+# Archives & exports
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Fastlane (if used later)
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Misc
+*.log
+.omc/
