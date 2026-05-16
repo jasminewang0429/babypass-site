@@ -33,6 +33,20 @@ GoogleService-Info.plist
 .env
 *.xcconfig
 
+# SSH / private keys (catches accidental ssh-keygen in repo dir)
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+id_*.pub
+*.pem
+*.key
+*_rsa
+*_dsa
+*_ecdsa
+*_ed25519
+eval *
+
 # Archives & exports
 *.ipa
 *.dSYM.zip
