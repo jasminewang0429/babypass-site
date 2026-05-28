@@ -404,7 +404,23 @@ struct Badge: View {
 
 #Preview {
     NavigationStack {
-        ListingDetailView(listing: SampleData.listings[0])
+        ListingDetailView(listing: Listing(
+            id: "preview",
+            sellerUid: "preview",
+            sellerName: "Emma R.",
+            title: "Graco 4Ever Convertible Car Seat",
+            price: 120,
+            originalPrice: 299,
+            category: .gear,
+            condition: .likeNew,
+            description: "Used for 8 months. No accidents. Cleaned thoroughly.",
+            photoURLs: [],
+            latitude: 37.4419,
+            longitude: -122.1430,
+            status: .active,
+            createdAt: Date(),
+            viewCount: 45
+        ))
             .environmentObject(AuthService())
             .environmentObject(DataService())
     }

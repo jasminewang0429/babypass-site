@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 struct MyListingsView: View {
     @EnvironmentObject var authService: AuthService
@@ -93,6 +94,20 @@ struct MyListingsView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("My Listings")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if let uid = Auth.auth().currentUser?.uid,
+               let storefrontURL = URL(string: "https://babypass-49b45.web.app/s/\(uid)") {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    ShareLink(
+                        item: storefrontURL,
+                        subject: Text("My listings on BabyPass"),
+                        message: Text("Check out what I'm selling on BabyPass!")
+                    ) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+            }
+        }
         .onAppear {
             loadListings()
         }

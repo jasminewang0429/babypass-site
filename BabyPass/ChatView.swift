@@ -160,7 +160,7 @@ struct ChatView: View {
         }
         .onAppear {
             startListening()
-            // Skip the write for "new"/SampleData and when there's nothing to clear.
+            // Skip the write for the not-yet-created "new" conversation and when there's nothing to clear.
             if let convId = conversation.id, convId != "new",
                conversation.unreadCount(for: currentUid) > 0 {
                 dataService.markConversationRead(conversationId: convId)
@@ -184,10 +184,6 @@ struct ChatView: View {
 
     private func startListening() {
         guard let convId = conversation.id, convId != "new" else {
-            // For sample data fallback
-            if let convoMessages = SampleData.messages[conversation.id ?? ""] {
-                messages = convoMessages
-            }
             if let initial = initialMessage, !initial.isEmpty {
                 let msg = Message(
                     id: UUID().uuidString,
@@ -286,7 +282,16 @@ struct RoundedCorner: Shape {
 
 #Preview {
     NavigationStack {
-        ChatView(conversation: SampleData.conversations[0])
+        ChatView(conversation: Conversation(
+            id: "preview",
+            participants: ["me", "other"],
+            listingId: "preview-listing",
+            listingTitle: "Graco Car Seat",
+            otherUserName: "Emma R.",
+            lastMessage: "Sounds good! I can meet at the park tomorrow.",
+            lastMessageAt: Date(),
+            unreadCount: 1
+        ))
             .environmentObject(AuthService())
             .environmentObject(DataService())
     }

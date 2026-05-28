@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BabyPass storefront</title>
+  <meta name="theme-color" content="#FF3760">
+
+  <meta property="og:title" id="og-title" content="BabyPass storefront">
+  <meta property="og:description" content="Buy and sell secondhand baby gear locally on BabyPass.">
+  <meta property="og:image" id="og-image" content="">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="bar">
+    <div class="bar-inner">
+      <span class="brand">BabyPass</span>
+      <a class="install-btn" id="install-top" href="#" rel="noopener">Install</a>
+    </div>
+  </header>
+
+  <main>
+    <h1 id="title">Loading…</h1>
+    <p id="subtitle" class="subtitle"></p>
+    <div id="grid" class="grid"></div>
+    <div id="empty" class="empty hidden">
+      <p>No active listings right now.</p>
+    </div>
+
+    <aside class="register-banner">
+      <div class="register-text">
+        <h2>Join BabyPass</h2>
+        <p>Message sellers, browse more local listings, and post your own outgrown gear. Free, no fees, local pickup only.</p>
+      </div>
+      <a class="install-btn big" id="install-banner" href="#" rel="noopener">Get the app</a>
+    </aside>
+  </main>
+
+  <footer>
+    <p class="footer-tagline">The neighborhood marketplace for parents.</p>
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCriydHsEmHQrzBB6TVXlr1lGCyPzpcCdc",
+      authDomain: "babypass-49b45.firebaseapp.com",
+      projectId: "babypass-49b45",
+      storageBucket: "babypass-49b45.firebasestorage.app",
+      messagingSenderId: "16826123320",
+      appId: "1:16826123320:web:23eed4432155ebab7912cd"
+    };
+
+    const APP_STORE_URL = "https://apps.apple.com/app/id6765940379";
+
+    // Mirror of Listing.ListingCategory.emoji in Models.swift
+    const CATEGORY_EMOJI = {
+      Gear: "🚗", Toys: "🧸", Books: "📚", Clothes: "👕",
+      Feeding: "🍼", Bath: "🛁", Nursery: "🛏️", Other: "📦"
+    };
+
+    document.getElementById('install-top').href = APP_STORE_URL;
+    document.getElementById('install-banner').href = APP_STORE_URL;
+
+    // Reverse-geocode cache: rounded "lat,lng" -> "City, ST" | null. Avoids re-querying
+    // the same coordinates when a seller has multiple items at one location.
+    const locationCache = new Map();
+    function coordKey(lat, lng) {
+      return `${lat.toFixed(3)},${lng.toFixed(3)}`;
+    }
+    async function reverseGeocode(lat, lng) {
+      const key = coordKey(lat, lng);
+      if (locationCache.has(key)) return locationCache.get(key);
+      try {
+        const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const data = await res.json();
+        const city = data.city || data.locality || '';
+        const code = data.principalSubdivisionCode || '';
+        const stateAbbr = code.includes('-') ? code.split('-')[1] : (data.principalSubdivision || '');
+        const result = city ? (stateAbbr ? `${city}, ${stateAbbr}` : city) : null;
+        locationCache.set(key, result);
+        return result;
+      } catch (err) {
+        locationCache.set(key, null);
+        return null;
+      }
+    }
+
+    function getSellerUid() {
+      const parts = location.pathname.split('/').filter(Boolean);
+      if (parts[0] === 's' && parts[1]) return parts[1];
+      return null;
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function cardId(listing, index) {
+      return `card-loc-${index}`;
+    }
+
+    function renderCard(listing, index) {
+      const photo = (listing.photoURLs && listing.photoURLs[0]) || null;
+      const emoji = CATEGORY_EMOJI[listing.category] || '📦';
+      const priceStr = `$${Math.round(listing.price)}`;
+      const originalStr = listing.originalPrice ? `<span class="original">$${Math.round(listing.originalPrice)}</span>` : '';
+      const photoHtml = photo
+        ? `<img loading="lazy" src="${escapeHtml(photo)}" alt="${escapeHtml(listing.title)}">`
+        : `<div class="placeholder">${emoji}</div>`;
+      return `
+        <article class="card">
+          <div class="thumb">${photoHtml}</div>
+          <div class="meta">
+            <h3>${escapeHtml(listing.title)}</h3>
+            <p class="price">${priceStr} ${originalStr}</p>
+            <p class="sub">${escapeHtml(listing.condition)} · ${emoji} ${escapeHtml(listing.category)}</p>
+            <p class="location" id="${cardId(listing, index)}">📍 Local pickup</p>
+          </div>
+        </article>
+      `;
+    }
+
+    async function fillLocations(listings) {
+      await Promise.all(listings.map(async (listing, index) => {
+        if (typeof listing.latitude !== 'number' || typeof listing.longitude !== 'number') return;
+        const name = await reverseGeocode(listing.latitude, listing.longitude);
+        if (!name) return;
+        const el = document.getElementById(cardId(listing, index));
+        if (el) el.textContent = `📍 ${name}`;
+      }));
+    }
+
+    async function main() {
+      const uid = getSellerUid();
+      const titleEl = document.getElementById('title');
+      const subtitleEl = document.getElementById('subtitle');
+      const gridEl = document.getElementById('grid');
+      const emptyEl = document.getElementById('empty');
+
+      if (!uid) {
+        titleEl.textContent = 'Storefront not found';
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        // Single-field query (no composite index needed); filter status + sort by date client-side.
+        const q = query(collection(db, 'listings'), where('sellerUid', '==', uid));
+        const snap = await getDocs(q);
+
+        const listings = snap.docs
+          .map(d => d.data())
+          .filter(l => l.status === 'active')
+          .sort((a, b) => {
+            const ta = a.createdAt?.seconds ?? 0;
+            const tb = b.createdAt?.seconds ?? 0;
+            return tb - ta;
+          });
+
+        if (listings.length === 0) {
+          titleEl.textContent = 'No active listings';
+          subtitleEl.textContent = "This seller doesn't have anything for sale right now.";
+          return;
+        }
+        const sellerName = listings[0].sellerName || 'This seller';
+        titleEl.textContent = `${sellerName}'s storefront`;
+        subtitleEl.textContent = `${listings.length} ${listings.length === 1 ? 'item' : 'items'} for sale`;
+        document.title = `${sellerName} on BabyPass`;
+        document.getElementById('og-title').setAttribute('content', `${sellerName}'s BabyPass storefront`);
+
+        const firstPhoto = listings.find(l => l.photoURLs && l.photoURLs[0]);
+        if (firstPhoto) {
+          document.getElementById('og-image').setAttribute('content', firstPhoto.photoURLs[0]);
+        }
+
+        gridEl.innerHTML = listings.map((l, i) => renderCard(l, i)).join('');
+        fillLocations(listings);
+      } catch (err) {
+        console.error(err);
+        titleEl.textContent = 'Something went wrong';
+        subtitleEl.textContent = "Couldn't load this storefront. Please try again later.";
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>

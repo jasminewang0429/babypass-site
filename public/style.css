@@ -1,0 +1,222 @@
+:root {
+  --pink: #FF3760;
+  --pink-soft: rgba(255, 55, 96, 0.1);
+  --ink: #1a1a1a;
+  --muted: #6b7280;
+  --bg: #f9fafb;
+  --card: #ffffff;
+  --border: rgba(0, 0, 0, 0.06);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.bar-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.brand {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--pink);
+}
+
+.install-btn {
+  display: inline-block;
+  background: var(--pink);
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  transition: opacity 0.15s;
+}
+.install-btn:hover { opacity: 0.9; }
+.install-btn.big {
+  padding: 14px 28px;
+  font-size: 16px;
+  border-radius: 14px;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+}
+
+h1 {
+  font-size: 26px;
+  margin: 8px 0 4px;
+  font-weight: 800;
+}
+.subtitle {
+  color: var(--muted);
+  margin: 0 0 24px;
+  font-size: 15px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.thumb {
+  aspect-ratio: 1 / 1;
+  background: var(--pink-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.placeholder {
+  font-size: 48px;
+  opacity: 0.6;
+}
+
+.meta {
+  padding: 10px 12px 14px;
+}
+.meta h3 {
+  font-size: 14px;
+  margin: 0 0 4px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta .price {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--pink);
+  margin: 0 0 4px;
+}
+.meta .original {
+  color: var(--muted);
+  text-decoration: line-through;
+  font-weight: 500;
+  font-size: 13px;
+  margin-left: 4px;
+}
+.meta .sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 4px;
+}
+.meta .location {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.register-banner {
+  margin: 32px 0 0;
+  padding: 24px;
+  background: linear-gradient(135deg, var(--pink-soft) 0%, #fff 100%);
+  border: 1px solid rgba(255, 55, 96, 0.18);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.register-text {
+  flex: 1 1 240px;
+}
+.register-text h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--pink);
+}
+.register-text p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 40px 16px;
+}
+.hidden { display: none; }
+
+footer {
+  max-width: 720px;
+  margin: 24px auto 0;
+  padding: 24px 16px 40px;
+  text-align: center;
+  border-top: 1px solid var(--border);
+}
+.footer-tagline {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.landing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #fff 0%, #fff5f7 100%);
+}
+.landing main {
+  text-align: center;
+  padding: 24px;
+}
+.landing h1 {
+  font-size: 48px;
+  color: var(--pink);
+  margin-bottom: 8px;
+}
+.landing .tagline {
+  font-size: 17px;
+  color: var(--muted);
+  margin: 16px 0 32px;
+  line-height: 1.5;
+  max-width: 480px;
+}
