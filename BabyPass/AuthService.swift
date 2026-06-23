@@ -18,6 +18,9 @@ class AuthService: ObservableObject {
                 self?.isSignedIn = user != nil
                 self?.userEmail = user?.email ?? ""
                 self?.userName = user?.displayName ?? ""
+                if let user = user {
+                    PushNotificationService.shared.registerIfNeeded(uid: user.uid)
+                }
             }
         }
     }
@@ -65,6 +68,7 @@ class AuthService: ObservableObject {
                         }
                     }
                     // Save user profile to Firestore
+                    let createdAt = Timestamp(date: Date())
                     let profile: [String: Any] = [
                         "displayName": name,
                         "email": trimmedEmail,
@@ -72,9 +76,20 @@ class AuthService: ObservableObject {
                         "salesCount": 0,
                         "listingsCount": 0,
                         "verifiedParent": false,
-                        "createdAt": Timestamp(date: Date())
+                        "createdAt": createdAt
                     ]
                     Firestore.firestore().collection("users").document(user.uid).setData(profile, merge: true)
+                    // Public mirror — see /userPublicProfiles rule in firestore.rules.
+                    // Keep field set aligned with the rule's hasOnly() whitelist.
+                    let publicProfile: [String: Any] = [
+                        "displayName": name,
+                        "profilePhotoURL": "",
+                        "salesCount": 0,
+                        "listingsCount": 0,
+                        "verifiedParent": false,
+                        "createdAt": createdAt
+                    ]
+                    Firestore.firestore().collection("userPublicProfiles").document(user.uid).setData(publicProfile, merge: true)
                 }
             }
         }
@@ -82,6 +97,9 @@ class AuthService: ObservableObject {
 
     // MARK: - Sign Out
     func signOut() {
+        // Unregister the push token first — once signOut() runs, currentUser
+        // is nil and we can no longer resolve the uid to delete the doc.
+        PushNotificationService.shared.unregister()
         do {
             try Auth.auth().signOut()
         } catch {

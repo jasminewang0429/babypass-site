@@ -15,6 +15,7 @@ struct SellView: View {
     @State private var selectedPhotos: [PhotosPickerItem] = []
     @State private var photoImages: [UIImage] = []
     @State private var showPostedAlert = false
+    @State private var showPostFailedAlert = false
     @State private var isPosting = false
     @State private var showCamera = false
     @State private var showPhotoMenu = false
@@ -158,6 +159,11 @@ struct SellView: View {
             } message: {
                 Text("Your item is now live and visible to nearby parents.")
             }
+            .alert("Couldn't post item", isPresented: $showPostFailedAlert) {
+                Button("OK") { }
+            } message: {
+                Text("We couldn't upload your photos. Check your connection and try again.")
+            }
             .sheet(isPresented: $showLocationSheet) {
                 LocationPickerSheet(
                     searchText: $locationSearchText,
@@ -207,11 +213,14 @@ struct SellView: View {
             description: description,
             photos: photoImages,
             latitude: latitude,
-            longitude: longitude
+            longitude: longitude,
+            locationText: locationText.isEmpty ? nil : locationText
         ) { success in
             isPosting = false
             if success {
                 showPostedAlert = true
+            } else {
+                showPostFailedAlert = true
             }
         }
     }

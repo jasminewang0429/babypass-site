@@ -114,6 +114,9 @@
       const photoHtml = photo
         ? `<img loading="lazy" src="${escapeHtml(photo)}" alt="${escapeHtml(listing.title)}">`
         : `<div class="placeholder">${emoji}</div>`;
+      const initialLocation = listing.locationText
+        ? `📍 ${escapeHtml(listing.locationText)}`
+        : '📍 Local pickup';
       return `
         <article class="card">
           <div class="thumb">${photoHtml}</div>
@@ -121,14 +124,16 @@
             <h3>${escapeHtml(listing.title)}</h3>
             <p class="price">${priceStr} ${originalStr}</p>
             <p class="sub">${escapeHtml(listing.condition)} · ${emoji} ${escapeHtml(listing.category)}</p>
-            <p class="location" id="${cardId(listing, index)}">📍 Local pickup</p>
+            <p class="location" id="${cardId(listing, index)}">${initialLocation}</p>
           </div>
         </article>
       `;
     }
 
+    // Fallback geocoder for legacy listings posted before locationText was stored.
     async function fillLocations(listings) {
       await Promise.all(listings.map(async (listing, index) => {
+        if (listing.locationText) return;
         if (typeof listing.latitude !== 'number' || typeof listing.longitude !== 'number') return;
         const name = await reverseGeocode(listing.latitude, listing.longitude);
         if (!name) return;

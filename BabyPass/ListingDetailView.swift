@@ -1,5 +1,4 @@
 import SwiftUI
-import MapKit
 
 struct ListingDetailView: View {
     let listing: Listing
@@ -16,7 +15,6 @@ struct ListingDetailView: View {
     @State private var reportReason = ""
     @State private var showSignInPrompt = false
     @State private var currentPhotoIndex = 0
-    @ObservedObject private var locationManager = LocationManager.shared
 
     private var heroPlaceholder: some View {
         ZStack {
@@ -41,9 +39,11 @@ struct ListingDetailView: View {
                 )
 
                 VStack(alignment: .leading, spacing: 12) {
-                    DetailInfoSection(listing: listing, userLat: locationManager.userLatitude, userLon: locationManager.userLongitude)
-                    DetailSellerCard(sellerName: listing.sellerName)
-                    DetailMiniMap(listing: listing, userLat: locationManager.userLatitude, userLon: locationManager.userLongitude)
+                    DetailInfoSection(listing: listing)
+                    PickupRow(listing: listing)
+                    ListedAgoCaption(createdAt: listing.createdAt)
+                    DetailSellerCard(sellerUid: listing.sellerUid, sellerName: listing.sellerName)
+                    MoreFromSellerRail(sellerUid: listing.sellerUid, sellerName: listing.sellerName, excludingId: listing.id)
                 }
                 .padding(16)
                 .padding(.bottom, 80)
@@ -55,6 +55,7 @@ struct ListingDetailView: View {
                 dataService.isListingSaved(listingId: id) { saved in
                     isSaved = saved
                 }
+                dataService.incrementListingViewCount(listingId: id, sellerUid: listing.sellerUid)
             }
         }
         .overlay(alignment: .bottom) {
@@ -252,8 +253,6 @@ struct DetailHeroView<Placeholder: View>: View {
 
 struct DetailInfoSection: View {
     let listing: Listing
-    var userLat: Double? = nil
-    var userLon: Double? = nil
 
     var body: some View {
         Group {
@@ -289,7 +288,12 @@ struct DetailInfoSection: View {
                 StatusBadge(status: listing.status)
                 Badge(text: listing.condition.rawValue, color: .green)
                 Badge(text: listing.category.rawValue, color: .blue)
-                Badge(text: listing.distanceText(from: userLat, userLon), color: .orange)
+            }
+
+            if listing.viewCount >= 10 {
+                Text("👀 \(listing.viewCount) views")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
 
             Text(listing.description)
@@ -304,32 +308,75 @@ struct DetailInfoSection: View {
 // MARK: - Detail Seller Card
 
 struct DetailSellerCard: View {
+    let sellerUid: String
     let sellerName: String
 
-    var body: some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color(red: 1, green: 0.6, blue: 0.62), Color(red: 0.996, green: 0.812, blue: 0.937)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 48, height: 48)
-                .overlay(
-                    Text(String(sellerName.prefix(1)))
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                )
+    @EnvironmentObject var dataService: DataService
+    @State private var info: DataService.SellerInfo? = nil
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(sellerName)
-                    .font(.headline)
-                Text("Seller")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+    private var displayName: String { info?.displayName ?? sellerName }
+
+    private var statsLine: String? {
+        guard let info = info else { return nil }
+        var parts: [String] = []
+        if info.salesCount > 0 {
+            parts.append("\(info.salesCount) \(info.salesCount == 1 ? "sale" : "sales")")
+        }
+        if info.listingsCount > 0 {
+            parts.append("\(info.listingsCount) active \(info.listingsCount == 1 ? "listing" : "listings")")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var avatarGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color(red: 1, green: 0.6, blue: 0.62), Color(red: 0.996, green: 0.812, blue: 0.937)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var initialAvatar: some View {
+        Circle()
+            .fill(avatarGradient)
+            .overlay(
+                Text(String(displayName.prefix(1)))
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+            )
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            avatarView
+                .frame(width: 48, height: 48)
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(displayName)
+                        .font(.headline)
+                    if info?.verifiedParent == true {
+                        Badge(text: "Verified parent", color: .babyPassPink)
+                    }
+                }
+
+                if let year = info?.joinedYear {
+                    Text("Joined \(year)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("Seller")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                if let stats = statsLine {
+                    Text(stats)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
 
             Spacer()
@@ -339,48 +386,181 @@ struct DetailSellerCard: View {
         .cornerRadius(14)
         .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
         .padding(.top, 4)
+        .onAppear {
+            guard info == nil else { return }
+            dataService.fetchSellerInfo(uid: sellerUid, fallbackName: sellerName) { fetched in
+                info = fetched
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var avatarView: some View {
+        if let urlString = info?.profilePhotoURL,
+           !urlString.isEmpty,
+           let url = URL(string: urlString) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image.resizable().scaledToFill()
+                case .failure, .empty:
+                    initialAvatar
+                @unknown default:
+                    initialAvatar
+                }
+            }
+        } else {
+            initialAvatar
+        }
     }
 }
 
-// MARK: - Detail Mini Map
+// MARK: - Pickup Row
 
-struct DetailMiniMap: View {
+struct PickupRow: View {
     let listing: Listing
-    var userLat: Double? = nil
-    var userLon: Double? = nil
 
-    private var coordinate: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: listing.latitude, longitude: listing.longitude)
+    private var label: String {
+        if let location = listing.locationText, !location.isEmpty {
+            return "📍 \(location) · Local pickup"
+        }
+        return "📍 Local pickup"
     }
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            Map(initialPosition: .region(MKCoordinateRegion(
-                center: coordinate,
-                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-            ))) {
-                Marker(listing.title, coordinate: coordinate)
-                    .tint(.red)
-            }
-            .mapStyle(.standard(pointsOfInterest: .excludingAll))
-            .frame(height: 180)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .allowsHitTesting(false)
+        Text(label)
+            .font(.subheadline)
+            .foregroundColor(.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 4)
+    }
+}
 
-            HStack(spacing: 4) {
-                Image(systemName: "location.fill")
-                    .font(.caption2)
-                Text("\(listing.distanceText(from: userLat, userLon)) away · Local pickup")
-                    .font(.caption)
-                    .fontWeight(.medium)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.regularMaterial)
-            .cornerRadius(8)
-            .padding(10)
+// MARK: - Listed Ago Caption
+
+struct ListedAgoCaption: View {
+    let createdAt: Date
+
+    private var text: String {
+        let now = Date()
+        if now.timeIntervalSince(createdAt) < 60 {
+            return "Just listed"
         }
-        .padding(.top, 4)
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return "Listed \(formatter.localizedString(for: createdAt, relativeTo: now))"
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+}
+
+// MARK: - More From Seller Rail
+
+struct MoreFromSellerRail: View {
+    let sellerUid: String
+    let sellerName: String
+    let excludingId: String?
+
+    @EnvironmentObject var dataService: DataService
+    @State private var listings: [Listing] = []
+    @State private var didLoad = false
+    @State private var selectedListing: Listing? = nil
+
+    var body: some View {
+        if listings.isEmpty {
+            Color.clear
+                .frame(height: 0)
+                .onAppear(perform: loadIfNeeded)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("More from \(sellerName)")
+                    .font(.headline)
+                    .padding(.top, 8)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(listings) { item in
+                            Button {
+                                selectedListing = item
+                            } label: {
+                                MoreFromSellerCard(listing: item)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .sheet(item: $selectedListing) { item in
+                NavigationStack {
+                    ListingDetailView(listing: item)
+                }
+            }
+        }
+    }
+
+    private func loadIfNeeded() {
+        guard !didLoad else { return }
+        didLoad = true
+        dataService.fetchListingsBySeller(uid: sellerUid, excludingId: excludingId) { results in
+            listings = results
+        }
+    }
+}
+
+private struct MoreFromSellerCard: View {
+    let listing: Listing
+
+    private var placeholder: some View {
+        ZStack {
+            LinearGradient(
+                colors: [listing.category.gradientStart, listing.category.gradientEnd],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Text(listing.category.emoji)
+                .font(.system(size: 36))
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Color.clear
+                .aspectRatio(1, contentMode: .fit)
+                .overlay {
+                    if let first = listing.photoURLs.first, let url = URL(string: first) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image.resizable().scaledToFill()
+                            case .failure, .empty:
+                                placeholder
+                            @unknown default:
+                                placeholder
+                            }
+                        }
+                    } else {
+                        placeholder
+                    }
+                }
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            Text(listing.title)
+                .font(.caption)
+                .fontWeight(.medium)
+                .lineLimit(1)
+                .foregroundColor(.primary)
+
+            Text("$\(Int(listing.price))")
+                .font(.subheadline)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+        }
+        .frame(width: 130)
     }
 }
 

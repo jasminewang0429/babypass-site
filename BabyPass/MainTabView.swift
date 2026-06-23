@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @EnvironmentObject var authService: AuthService
+    @EnvironmentObject var dataService: DataService
     @State private var selectedTab = 0
 
     var body: some View {
@@ -60,6 +61,16 @@ struct MainTabView: View {
             .tag(4)
         }
         .tint(Color(red: 1.0, green: 0.216, blue: 0.373)) // BabyPass pink
+        .onReceive(dataService.$pendingConversationId) { id in
+            guard id != nil else { return }
+            selectedTab = 3
+        }
+        .onAppear {
+            if authService.isSignedIn { dataService.ensureMyPublicProfile() }
+        }
+        .onChange(of: authService.isSignedIn) { _, isSignedIn in
+            if isSignedIn { dataService.ensureMyPublicProfile() }
+        }
     }
 }
 

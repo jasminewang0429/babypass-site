@@ -16,6 +16,7 @@ struct Listing: Identifiable, Codable, Hashable {
     var photoURLs: [String]
     var latitude: Double
     var longitude: Double
+    var locationText: String?
     var status: ListingStatus
     var createdAt: Date
     var viewCount: Int

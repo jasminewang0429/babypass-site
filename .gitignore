@@ -64,3 +64,6 @@ fastlane/test_output
 
 # Firebase Hosting deploy cache
 .firebase/
+
+# Cloud Functions deps
+functions/node_modules/

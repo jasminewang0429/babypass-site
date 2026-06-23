@@ -8,6 +8,10 @@ class DataService: ObservableObject {
     @Published var listings: [Listing] = []
     @Published var conversations: [Conversation] = []
     @Published var isLoading: Bool = false
+    /// Set by `AppDelegate` when the user taps a push notification. SwiftUI
+    /// (MainTabView + MessagesView) observes this to switch tabs and present
+    /// the matching `ChatView`. Consumers reset it to nil after handling.
+    @Published var pendingConversationId: String? = nil
 
     private let db = Firestore.firestore()
     private let storage = Storage.storage()
@@ -17,6 +21,15 @@ class DataService: ObservableObject {
     /// Auth has rehydrated the user (handles the cold-launch race where the
     /// Messages tab appears before `currentUser` is non-nil).
     fileprivate var pendingConversationsListenerHandle: AuthStateDidChangeListenerHandle?
+
+    /// Bridge from non-SwiftUI code (e.g. `AppDelegate` on a push tap) to the
+    /// single DataService instance owned by `BabyPassApp`. Weak so the
+    /// @StateObject still owns the lifecycle.
+    static weak var shared: DataService?
+
+    init() {
+        Self.shared = self
+    }
 
     deinit {
         listingsListener?.remove()
@@ -58,6 +71,7 @@ class DataService: ObservableObject {
         photos: [UIImage],
         latitude: Double,
         longitude: Double,
+        locationText: String?,
         completion: @escaping (Bool) -> Void
     ) {
         guard let user = Auth.auth().currentUser else {
@@ -67,8 +81,18 @@ class DataService: ObservableObject {
 
         isLoading = true
 
-        // Upload photos first, then create listing
-        uploadPhotos(photos, listingId: UUID().uuidString) { [weak self] photoURLs in
+        // Upload photos first, then create listing. If the user provided
+        // photos but any upload failed, abort instead of silently creating a
+        // listing with missing images (previous behavior).
+        uploadPhotos(photos, listingId: UUID().uuidString) { [weak self] photoURLs, allUploaded in
+            if !photos.isEmpty && !allUploaded {
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    completion(false)
+                }
+                return
+            }
+
             let listing = Listing(
                 id: nil,
                 sellerUid: user.uid,
@@ -82,6 +106,7 @@ class DataService: ObservableObject {
                 photoURLs: photoURLs,
                 latitude: latitude,
                 longitude: longitude,
+                locationText: locationText,
                 status: .active,
                 createdAt: Date(),
                 viewCount: 0
@@ -103,30 +128,54 @@ class DataService: ObservableObject {
         }
     }
 
-    /// Upload photos to Firebase Storage
-    private func uploadPhotos(_ images: [UIImage], listingId: String, completion: @escaping ([String]) -> Void) {
+    /// Upload photos to Firebase Storage.
+    /// Returns the resulting URLs (in original order) and a flag indicating
+    /// whether every photo uploaded successfully — callers use the flag to
+    /// avoid creating a listing with silently-missing images.
+    private func uploadPhotos(_ images: [UIImage], listingId: String, completion: @escaping ([String], Bool) -> Void) {
         guard !images.isEmpty else {
-            completion([])
+            completion([], true)
             return
         }
 
-        var uploadedURLs: [String] = []
+        // Explicit content type so Storage rules that gate on image MIME
+        // (a common default) don't reject our uploads as octet-stream.
+        let metadata = StorageMetadata()
+        metadata.contentType = "image/jpeg"
+
+        // Indexed slots preserve the user's chosen photo order and let us
+        // write from concurrent callbacks without an unguarded array append.
+        var slots: [String?] = Array(repeating: nil, count: images.count)
+        let lock = NSLock()
+        var allSucceeded = true
         let group = DispatchGroup()
 
+        print("Photo upload: starting for listing \(listingId), \(images.count) photo(s)")
         for (index, image) in images.enumerated() {
-            guard let data = image.jpegData(compressionQuality: 0.6) else { continue }
+            guard let data = image.jpegData(compressionQuality: 0.6) else {
+                print("Photo upload error (photo_\(index)): jpegData returned nil")
+                lock.lock(); allSucceeded = false; lock.unlock()
+                continue
+            }
+            print("Photo upload: photo_\(index) = \(data.count) bytes")
             let ref = storage.reference().child("listings/\(listingId)/photo_\(index).jpg")
 
             group.enter()
-            ref.putData(data) { _, error in
+            ref.putData(data, metadata: metadata) { _, error in
                 if let error = error {
-                    print("Upload error: \(error)")
+                    print("Photo upload error (photo_\(index)): \(error.localizedDescription)")
+                    lock.lock(); allSucceeded = false; lock.unlock()
                     group.leave()
                     return
                 }
-                ref.downloadURL { url, _ in
+                ref.downloadURL { url, downloadError in
                     if let url = url {
-                        uploadedURLs.append(url.absoluteString)
+                        lock.lock(); slots[index] = url.absoluteString; lock.unlock()
+                    } else {
+                        if let downloadError = downloadError {
+                            print("Photo downloadURL error (photo_\(index)): \(downloadError.localizedDescription)")
+                        }
+                        lock.lock(); allSucceeded = false; lock.unlock()
                     }
                     group.leave()
                 }
@@ -134,7 +183,7 @@ class DataService: ObservableObject {
         }
 
         group.notify(queue: .main) {
-            completion(uploadedURLs)
+            completion(slots.compactMap { $0 }, allSucceeded)
         }
     }
 
@@ -378,6 +427,28 @@ class DataService: ObservableObject {
             }
     }
 
+    /// Fetch other active listings by a specific seller, for the detail-page rail.
+    func fetchListingsBySeller(uid: String, excludingId: String?, limit: Int = 6, completion: @escaping ([Listing]) -> Void) {
+        db.collection("listings")
+            .whereField("sellerUid", isEqualTo: uid)
+            .whereField("status", isEqualTo: Listing.ListingStatus.active.rawValue)
+            .limit(to: limit)
+            .getDocuments { snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    print("Error fetching seller listings: \(error?.localizedDescription ?? "Unknown")")
+                    DispatchQueue.main.async { completion([]) }
+                    return
+                }
+                let listings = documents
+                    .compactMap { try? $0.data(as: Listing.self) }
+                    .filter { $0.id != excludingId }
+                    .sorted { $0.createdAt > $1.createdAt }
+                DispatchQueue.main.async {
+                    completion(listings)
+                }
+            }
+    }
+
     /// Update listing status (available, pending, sold)
     func updateListingStatus(listingId: String, status: Listing.ListingStatus, completion: @escaping (Bool) -> Void) {
         db.collection("listings").document(listingId).updateData([
@@ -476,6 +547,7 @@ class DataService: ObservableObject {
 
     /// Create or update user profile in Firestore
     func saveUserProfile(uid: String, displayName: String, email: String) {
+        let createdAt = Timestamp(date: Date())
         let profile: [String: Any] = [
             "displayName": displayName,
             "email": email,
@@ -483,9 +555,48 @@ class DataService: ObservableObject {
             "salesCount": 0,
             "listingsCount": 0,
             "verifiedParent": false,
-            "createdAt": Timestamp(date: Date())
+            "createdAt": createdAt
         ]
         db.collection("users").document(uid).setData(profile, merge: true)
+        let publicProfile: [String: Any] = [
+            "displayName": displayName,
+            "profilePhotoURL": "",
+            "salesCount": 0,
+            "listingsCount": 0,
+            "verifiedParent": false,
+            "createdAt": createdAt
+        ]
+        db.collection("userPublicProfiles").document(uid).setData(publicProfile, merge: true)
+    }
+
+    /// Mirror missing fields from /users/{me} to /userPublicProfiles/{me}.
+    /// Self-heals existing accounts created before the public profile was added.
+    func ensureMyPublicProfile() {
+        guard let user = Auth.auth().currentUser else { return }
+        let publicRef = db.collection("userPublicProfiles").document(user.uid)
+        publicRef.getDocument { [weak self] snapshot, _ in
+            if snapshot?.exists == true { return }
+            self?.db.collection("users").document(user.uid).getDocument { userDoc, _ in
+                let data = userDoc?.data() ?? [:]
+                let mirror: [String: Any] = [
+                    "displayName": data["displayName"] as? String ?? user.displayName ?? "",
+                    "profilePhotoURL": data["profilePhotoURL"] as? String ?? "",
+                    "salesCount": data["salesCount"] as? Int ?? 0,
+                    "listingsCount": data["listingsCount"] as? Int ?? 0,
+                    "verifiedParent": data["verifiedParent"] as? Bool ?? false,
+                    "createdAt": data["createdAt"] as? Timestamp ?? Timestamp(date: user.metadata.creationDate ?? Date())
+                ]
+                publicRef.setData(mirror, merge: true)
+            }
+        }
+    }
+
+    /// Atomically increment a listing's viewCount. No-op for the seller's own views.
+    func incrementListingViewCount(listingId: String, sellerUid: String) {
+        guard let user = Auth.auth().currentUser, user.uid != sellerUid else { return }
+        db.collection("listings").document(listingId).updateData([
+            "viewCount": FieldValue.increment(Int64(1))
+        ])
     }
 
     // MARK: - Profile Photo
@@ -519,6 +630,9 @@ class DataService: ObservableObject {
                 self.db.collection("users").document(user.uid).updateData([
                     "profilePhotoURL": urlString
                 ])
+                self.db.collection("userPublicProfiles").document(user.uid).setData([
+                    "profilePhotoURL": urlString
+                ], merge: true)
                 DispatchQueue.main.async {
                     completion(urlString)
                 }
@@ -536,6 +650,40 @@ class DataService: ObservableObject {
             let url = snapshot?.data()?["profilePhotoURL"] as? String
             DispatchQueue.main.async {
                 completion(url)
+            }
+        }
+    }
+
+    /// Lightweight snapshot of a seller for the listing-detail trust card.
+    struct SellerInfo {
+        var displayName: String
+        var profilePhotoURL: String?
+        var joinedYear: String?
+        var verifiedParent: Bool
+        var salesCount: Int
+        var listingsCount: Int
+    }
+
+    /// Fetch trust-card info for an arbitrary seller by uid. Reads the public
+    /// mirror so buyers (non-owners) can see seller stats without violating the
+    /// owner-only rule on /users/{uid}.
+    func fetchSellerInfo(uid: String, fallbackName: String, completion: @escaping (SellerInfo) -> Void) {
+        db.collection("userPublicProfiles").document(uid).getDocument { snapshot, _ in
+            let data = snapshot?.data() ?? [:]
+            var joinedYear: String? = nil
+            if let timestamp = data["createdAt"] as? Timestamp {
+                joinedYear = String(Calendar.current.component(.year, from: timestamp.dateValue()))
+            }
+            let info = SellerInfo(
+                displayName: (data["displayName"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? fallbackName,
+                profilePhotoURL: data["profilePhotoURL"] as? String,
+                joinedYear: joinedYear,
+                verifiedParent: data["verifiedParent"] as? Bool ?? false,
+                salesCount: data["salesCount"] as? Int ?? 0,
+                listingsCount: data["listingsCount"] as? Int ?? 0
+            )
+            DispatchQueue.main.async {
+                completion(info)
             }
         }
     }

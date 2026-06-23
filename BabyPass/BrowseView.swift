@@ -396,9 +396,9 @@ struct ListingCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Image or placeholder
-            GeometryReader { geo in
-                ZStack {
+            Color.clear
+                .aspectRatio(1, contentMode: .fit)
+                .overlay {
                     if let firstPhoto = listing.photoURLs.first, let url = URL(string: firstPhoto) {
                         AsyncImage(url: url) { phase in
                             switch phase {
@@ -406,7 +406,6 @@ struct ListingCard: View {
                                 image
                                     .resizable()
                                     .scaledToFill()
-                                    .frame(width: geo.size.width, height: geo.size.width)
                             case .failure(_):
                                 listingPlaceholder
                             case .empty:
@@ -421,46 +420,39 @@ struct ListingCard: View {
                     } else {
                         listingPlaceholder
                     }
-
-                    // Overlay badges
-                    VStack {
-                        HStack {
-                            // Status badge (only for non-active)
-                            if listing.status == .pending {
-                                HStack(spacing: 3) {
-                                    Image(systemName: "clock.fill")
-                                        .font(.system(size: 8))
-                                    Text("Pending")
-                                        .font(.caption2)
-                                        .fontWeight(.bold)
-                                }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .background(Color.orange)
-                                .cornerRadius(6)
+                }
+                .overlay(alignment: .top) {
+                    HStack {
+                        if listing.status == .pending {
+                            HStack(spacing: 3) {
+                                Image(systemName: "clock.fill")
+                                    .font(.system(size: 8))
+                                Text("Pending")
+                                    .font(.caption2)
+                                    .fontWeight(.bold)
                             }
-
-                            Spacer()
-
-                            Text(listing.distanceText(from: userLat, userLon))
-                                .font(.caption2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .background(Color.black.opacity(0.55))
-                                .cornerRadius(6)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Color.orange)
+                            .cornerRadius(6)
                         }
+
                         Spacer()
+
+                        Text(listing.distanceText(from: userLat, userLon))
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Color.black.opacity(0.55))
+                            .cornerRadius(6)
                     }
                     .padding(8)
                 }
-                .frame(width: geo.size.width, height: geo.size.width)
                 .clipped()
-            }
-            .aspectRatio(1, contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             // Info
             VStack(alignment: .leading, spacing: 2) {

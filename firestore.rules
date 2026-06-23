@@ -40,8 +40,19 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSignedIn()
                     && request.resource.data.sellerUid == request.auth.uid;
-      allow update, delete: if isSignedIn()
-                            && resource.data.sellerUid == request.auth.uid;
+      allow update: if isSignedIn() && (
+                      resource.data.sellerUid == request.auth.uid
+                      || (
+                        // Anyone signed in may +1 viewCount, and ONLY viewCount.
+                        // Trade-off: a user could re-open a listing to inflate the
+                        // count. Damage is minimal (one number) and tightening this
+                        // would require Cloud Functions or per-user rate-limit docs.
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount'])
+                        && request.resource.data.viewCount == resource.data.viewCount + 1
+                      )
+                    );
+      allow delete: if isSignedIn()
+                    && resource.data.sellerUid == request.auth.uid;
     }
 
     // ===== conversations =====
@@ -100,6 +111,30 @@ service cloud.firestore {
       match /blockedUsers/{otherUid} {
         allow read, write: if isOwner(uid);
       }
+
+      // FCM push tokens (one doc per device). Owner-only — the Cloud Function
+      // uses the Admin SDK and bypasses these rules.
+      match /fcmTokens/{tokenId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ===== public profiles =====
+    // Public mirror of select fields from /users/{uid}. Written by the client
+    // on signup and whenever a public field changes, so buyers can render the
+    // seller trust card on listing details (name, photo, joined year, verified-
+    // parent badge, sales/listings counts) without exposing private fields like
+    // email.
+    //
+    // The field whitelist below is the privacy boundary — anything added here
+    // later becomes publicly readable, so review carefully when changing it.
+    match /userPublicProfiles/{uid} {
+      allow read: if true;
+      allow write: if isOwner(uid)
+                   && request.resource.data.keys().hasOnly([
+                     'displayName', 'profilePhotoURL', 'verifiedParent',
+                     'salesCount', 'listingsCount', 'createdAt'
+                   ]);
     }
 
     // ===== reports =====

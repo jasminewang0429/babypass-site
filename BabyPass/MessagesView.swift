@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 struct MessagesView: View {
     @EnvironmentObject var authService: AuthService
@@ -49,6 +50,17 @@ struct MessagesView: View {
                     ChatView(conversation: conv)
                         .environmentObject(authService)
                         .environmentObject(dataService)
+                }
+            }
+            .onReceive(dataService.$pendingConversationId) { id in
+                guard let id = id else { return }
+                Firestore.firestore().collection("conversations").document(id).getDocument { snap, _ in
+                    DispatchQueue.main.async {
+                        if let conv = try? snap?.data(as: Conversation.self) {
+                            selectedConversation = conv
+                        }
+                        dataService.pendingConversationId = nil
+                    }
                 }
             }
         }
